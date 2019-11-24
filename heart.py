@@ -37,7 +37,21 @@ def FilterContours(contours):
 def InvertImage(image):
     return (255-img)
 
-def Filtering(image):
+def FilteringArcView(image):
+    grayImageEqu = cv2.equalizeHist(grayImage)
+    copyGrayImage = grayImage.copy()
+    copyGrayImage = cv2.medianBlur(copyGrayImage, 7)
+    copyGrayImage[grayImageEqu < 150] = 0
+    copyGrayImage[grayImageEqu >= 200] = 255
+    # equalize histogram 
+    grayImageEqu2 = cv2.equalizeHist(copyGrayImage)
+    # filtering (blur and ...)
+    grayImageEqu2 = cv2.medianBlur(grayImageEqu2, 7)
+    copyGrayImage[grayImageEqu2 < 150] = 0
+    copyGrayImage[grayImageEqu2 >= 200] = 255
+    return copyGrayImage
+   
+def FilteringChamberView(image):
     grayImageEqu = cv2.equalizeHist(grayImage)
     copyGrayImage = grayImage.copy()
     copyGrayImage = cv2.medianBlur(copyGrayImage, 7)
@@ -53,7 +67,7 @@ def Filtering(image):
 
 def CropImage(image):
     x=0
-    y=60
+    y=60  # This is hardcode for special DCIM files
     h=700
     w=800
     return image[y: y + h, x: x + w]
@@ -74,7 +88,7 @@ while index < imageCount:
     # convert to gray
     grayImage = cv2.cvtColor(invertedImg, cv2.COLOR_BGR2GRAY)
     #displayImage(grayImage, grayImage)
-    filteringImage = Filtering(grayImage)
+    filteringImage = FilteringChamberView(grayImage)
     #displayImage(grayImageEqu2, copyGrayImage)
     contours, hier = cv2.findContours(filteringImage, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)   #cv2.RETR_EXTERNAL
     print("Number of all contours = " + str(len(contours)))
