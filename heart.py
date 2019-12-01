@@ -7,8 +7,9 @@ import os
 print("cv2.__version__ : ", cv2.__version__)
 
 # define constants
-RedColor = (0, 0, 255)
-BlueColor = (255, 0, 0)
+BlueColor = (0, 0, 255)
+RedColor = (255, 0, 0)
+GreenColor = (0, 255, 0)
 dcmFolder = "c:\\temp2\\"
 dcmFilePath =  os.path.join(dcmFolder, "01605286_112110_0592.DCM")  # get_testdata_files('MR_small.dcm')[0]
 contourAreaThreshold = 2000
@@ -69,26 +70,53 @@ def CropImage(image):
     w=800
     return image[y: y + h, x: x + w]
 
+def FindCameraViewEdge(image):
+    kernel = np.ones((3,3), np.uint8) 
+    grayImage = ConvertToGray(image)
+    grayImage = cv2.erode(grayImage, kernel, iterations=1)
+    grayImage = cv2.dilate(grayImage, kernel, iterations=1)
+    contours, hierarchy = cv2.findContours(grayImage, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+    edges = []
+    for cnt in contours:
+        if cv2.contourArea(cnt) > 10000 :
+            edges.append(cnt)
+    return edges
+
+def FillBlackOutsideHeartRange(contours,image):
+    stencil = np.zeros(image.shape).astype(image.dtype)
+    color = [255, 255, 255]
+    cv2.fillPoly(stencil, contours, color)
+    return cv2.bitwise_and(image, stencil)
+
 # pixel_array needs Pillow package
 imagePixels = originalImageDataSet.pixel_array
 imageCount = imagePixels.shape[0]
 index = 0
 
-while index < imageCount:
-    # merge BGR
-    img = cv2.merge((imagePixels[index, :, :, 0], imagePixels[index, :, :, 1], imagePixels[index, :, :, 2]))
-    img = CropImage(img)
-    contourImage = img.copy()
-    filteringChamberImage = FilteringChamberView(img)
-    contoursChamber, hierChanmber = cv2.findContours(filteringChamberImage, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)  
-    filteringMuscleImage = FilteringMuscleView(img)
-    contourMuscle, hierMuscle = cv2.findContours(filteringMuscleImage, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE) #cv2.RETR_EXTERNAL
-    qualifiedChamberContours = FilterContours(contoursChamber)
-    qualifiedMuscleContours = FilterContours(contourMuscle)
-    # draw contours
-    cv2.drawContours(contourImage, qualifiedChamberContours, -1, RedColor, 2)
-    cv2.drawContours(contourImage, qualifiedMuscleContours, -1, BlueColor, 2)
-    combinedImage = np.concatenate((img, contourImage), axis=1)
-    cv2.imwrite(os.path.join(dcmFolder, str(index) + ".png"), combinedImage)
-    print(str(index) + ".png is created.")
-    index = index + 1
+img = cv2.merge((imagePixels[index, :, :, 0], imagePixels[index, :, :, 1], imagePixels[index, :, :, 2]))
+img = CropImage(img)
+contourImage = img.copy()
+edges = FindCameraViewEdge(img)
+heartViewImage = FillBlackOutsideHeartRange(edges, img)
+
+cv2.drawContours(contourImage, edges, -1, GreenColor, 2)
+DisplayImage(heartViewImage, contourImage)
+     
+# while index < imageCount:
+#     # merge BGR
+#     img = cv2.merge((imagePixels[index, :, :, 0], imagePixels[index, :, :, 1], imagePixels[index, :, :, 2]))
+#     img = CropImage(img)
+#     contourImage = img.copy()
+#     filteringChamberImage = FilteringChamberView(img)
+#     contoursChamber, hierChanmber = cv2.findContours(filteringChamberImage, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)  
+#     filteringMuscleImage = FilteringMuscleView(img)
+#     contourMuscle, hierMuscle = cv2.findContours(filteringMuscleImage, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE) #cv2.RETR_EXTERNAL
+#     qualifiedChamberContours = FilterContours(contoursChamber)
+#     qualifiedMuscleContours = FilterContours(contourMuscle)
+#     # draw contours
+#     cv2.drawContours(contourImage, qualifiedChamberContours, -1, RedColor, 2)
+#     cv2.drawContours(contourImage, qualifiedMuscleContours, -1, BlueColor, 2)
+#     combinedImage = np.concatenate((img, contourImage), axis=1)
+#     cv2.imwrite(os.path.join(dcmFolder, str(index) + ".png"), combinedImage)
+#     print(str(index) + ".png is created.")
+#     index = index + 1
